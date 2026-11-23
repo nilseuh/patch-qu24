@@ -28,6 +28,8 @@
   --bg:#15181d; --panel:#1e2228; --strip:#252a31; --line:#353b45; --fg:#e8ebf0; --muted:#9aa3b1;
   --accent:#5b93ff; --accent-fg:#0d1320; --warn:#f0a050; color-scheme:dark}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{overflow-x:hidden}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
@@ -109,6 +111,28 @@ td.no{font:500 .9rem var(--f-mono);width:44px;white-space:nowrap}
 td.sname{font:700 1.05rem var(--f-strip);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 td.muted{color:var(--muted)}
 tr.free td{color:var(--muted)}
+/* Liste simple (mobile) */
+.plist{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.plist>.editor{border-radius:0;border-width:1px 0}
+.prow{all:unset;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);width:100%}
+.prow:last-child{border-bottom:0}
+.prow.click{cursor:pointer}
+.prow.click:active{background:var(--strip)}
+.prow.free{color:var(--muted)}
+.pno{font:500 1rem var(--f-mono);color:var(--muted);padding-top:2px}
+.pbody{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pname{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
+.pname b{font:700 1.2rem var(--f-strip);letter-spacing:.04em;text-transform:uppercase}
+.pdesc{font-size:.95rem}
+.pmeta{font-size:.82rem;color:var(--muted)}
+.pnote{font-size:.8rem;color:var(--muted);font-style:italic}
+.strip.ro,.mixkey.ro{cursor:default}
+@media (max-width:600px){
+  #exportBtn{display:none}
+  h1{font-size:1.6rem}
+  nav.tabs button{padding:9px 8px;font-size:.85rem}
+  .legend{font-size:.75rem}
+}
 .emptybox{background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:22px;color:var(--muted);text-align:center}
 .notice{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;padding:10px 14px;font-size:.88rem;margin-bottom:12px}
 .notice.edit{border-left-color:var(--accent)}
@@ -140,13 +164,13 @@ tr.free td{color:var(--muted)}
     <label class="check"><input id="remember" type="checkbox" checked> Se souvenir sur cet appareil</label>
     <div class="row"><button class="btn primary" type="submit" id="unlockBtn">Déverrouiller</button><button class="btn" type="button" id="pwCancel">Annuler</button></div>
   </form>
-  <div class="notice edit" id="editNotice" hidden>Mode édition actif : touche une tranche, un mix ou une scène pour la modifier.</div>
+  <div class="notice edit" id="editNotice" hidden>Mode édition : touche un élément pour le modifier.</div>
   <div class="notice" id="setupNotice" hidden>L'app n'est pas encore reliée à la base de données. Colle l'URL de l'application Web Google dans le fichier <b>config.js</b> (voir LISEZMOI).</div>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="entrees" aria-selected="true">Entrées</button>
-    <button role="tab" data-tab="mix" aria-selected="false">Mix &amp; enceintes</button>
+    <button role="tab" data-tab="mix" aria-selected="false">Mix</button>
     <button role="tab" data-tab="scenes" aria-selected="false">Scènes</button>
-    <button role="tab" data-tab="histo" aria-selected="false">Dernières modifs</button>
+    <button role="tab" data-tab="histo" aria-selected="false">Historique</button>
   </nav>
   <section class="view" id="view"></section>
 </div>
@@ -172,7 +196,7 @@ const MIXTYPES=["Façade (salle)","Retour scène (wedge)","Ear monitor (IEM)","E
 const S={tab:"entrees",view:"strips",sel:null,channels:{},mixes:{},scenes:{},cats:null,loaded:false,edit:false,pw:"",name:"",catEdit:false,catDraft:[],busy:false,lastOk:0};
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 const ss={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}},del(k){try{sessionStorage.removeItem(k)}catch(e){}}};
-S.tab=ls.get("qu24tab")||S.tab; S.view=ls.get("qu24view")||S.view; S.name=ls.get("qu24name")||"";
+S.tab=ls.get("qu24tab")||S.tab; S.view=ls.get("qu24view2")||(window.matchMedia("(max-width:600px)").matches?"list":"strips"); S.name=ls.get("qu24name")||"";
 S.pw=ls.get("qu24pw")||ss.get("qu24pw")||""; S.edit=!!S.pw&&ss.get("qu24edit")==="1";
 try{ const c=JSON.parse(ls.get("qu24cache")||"null"); if(c&&c.ok) applyData(c,true); }catch(e){}
 
@@ -284,7 +308,7 @@ function dot(id){ const d=el("i",{class:"dot"}); const c=catColor(id); if(c) d.s
 
 function strip(inp){
   const d=S.channels[inp.id]; const label=d?str(d.label):"";
-  const b=el("button",{class:"strip"+(label?"":" empty")+(S.sel===inp.id?" sel":""),onclick:()=>pick(inp.id)},
+  const b=el(S.edit?"button":"div",{class:"strip"+(label?"":" empty")+(S.sel===inp.id?" sel":"")+(S.edit?"":" ro"),onclick:S.edit?()=>pick(inp.id):null},
     el("span",{class:"num"},el("span",{text:inp.tag}),d&&str(d.note)?el("span",{text:"•",title:"Note"}):null),
     el("span",{class:"band"}),
     el("span",{class:"lbl",text:label||"—"}),
@@ -296,25 +320,30 @@ function strip(inp){
 function renderInputs(v){
   v.append(el("div",{class:"row"},
     el("div",{class:"seg"},
-      el("button",{type:"button","aria-pressed":String(S.view==="strips"),onclick:()=>{S.view="strips";ls.set("qu24view","strips");render();}},"Tranches"),
-      el("button",{type:"button","aria-pressed":String(S.view==="list"),onclick:()=>{S.view="list";ls.set("qu24view","list");render();}},"Liste")),
+      el("button",{type:"button","aria-pressed":String(S.view==="strips"),onclick:()=>{S.view="strips";ls.set("qu24view2","strips");render();}},"Tranches"),
+      el("button",{type:"button","aria-pressed":String(S.view==="list"),onclick:()=>{S.view="list";ls.set("qu24view2","list");render();}},"Liste")),
     el("span",{class:"spacer"}),
     S.edit?el("button",{class:"btn",type:"button",onclick:()=>{S.catEdit=!S.catEdit;S.catDraft=cats().map(c=>({id:c.id,label:c.label,color:HEX.test(c.color)?c.color:"#7d8794"}));render();}},S.catEdit?"Fermer les catégories":"Modifier les catégories"):null));
   v.append(el("div",{class:"legend"},cats().map(c=>el("span",null,dot(c.id),c.label))));
   if(S.catEdit&&S.edit) v.append(catEditor());
   if(!S.loaded) v.append(el("div",{class:"emptybox",text:API?"Chargement du patch…":"En attente de la connexion à la base de données."}));
   if(S.view==="list"){
-    const tb=el("tbody");
+    const box=el("div",{class:"plist"}); const free=[];
     for(const inp of INPUTS){
       const d=S.channels[inp.id];
-      tb.append(el("tr",{class:"click"+(d?"":" free"),tabindex:"0",onclick:()=>pick(inp.id),onkeydown:e=>{if(e.key==="Enter")pick(inp.id);}},
-        el("td",{class:"no",text:inp.tag}),
-        el("td",{class:"sname"},d?dot(d.cat):null,d?" "+str(d.label):"—"),
-        el("td",{text:d?(str(d.desc)||catLabel(d.cat)):"Libre"}),
-        el("td",{class:"muted",text:d?str(d.src):""})));
-      if(S.sel===inp.id) tb.append(el("tr",null,el("td",{colspan:"4"},inputEditor(inp))));
+      if(!d&&!S.edit){ free.push(inp.tag); continue; }
+      const row=el(S.edit?"button":"div",{class:"prow"+(d?"":" free")+(S.edit?" click":""),onclick:S.edit?()=>pick(inp.id):null},
+        el("span",{class:"pno",text:inp.tag}),
+        el("span",{class:"pbody"},
+          el("span",{class:"pname"},d?dot(d.cat):null,el("b",{text:d?str(d.label):"Libre"}),d&&str(d.desc)?el("span",{class:"pdesc",text:str(d.desc)}):null),
+          d&&(str(d.src)||str(d.plug))?el("span",{class:"pmeta",text:[str(d.src),str(d.plug)].filter(Boolean).join(" · ")}):null,
+          d&&str(d.note)?el("span",{class:"pnote",text:str(d.note)}):null));
+      box.append(row);
+      if(S.sel===inp.id) box.append(inputEditor(inp));
     }
-    v.append(el("div",{class:"tablewrap"},el("table",null,el("thead",null,el("tr",null,el("th",{text:"N°"}),el("th",{text:"Nom"}),el("th",{text:"Qui / quoi"}),el("th",{text:"Micro / source"}))),tb)));
+    if(S.loaded&&!box.childNodes.length) box.append(el("div",{class:"emptybox",text:"Aucune piste renseignée pour l'instant."}));
+    v.append(box);
+    if(free.length&&S.loaded) v.append(el("p",{class:"stamp",text:"Pistes libres : "+free.join(", ")}));
     return;
   }
   for(const [bk,title] of [["a","Entrées 1 – 12"],["b","Entrées 13 – 24"],["st","Entrées stéréo ST1 – ST3"]]){
@@ -380,11 +409,12 @@ function renderMixes(v){
   for(const [title,list] of [["Mix (aux) 1 – 10",MIXES.filter(m=>m.kind==="mono"||m.kind==="stéréo")],["Sortie principale et matrices",MIXES.filter(m=>m.kind==="principal"||m.kind==="matrice")]]){
     v.append(el("div",{class:"bank"},el("h2",{text:title}),el("div",{class:"mixes"},list.map(m=>{
       const d=S.mixes[m.id]; const name=d?str(d.name):"";
-      return el("button",{class:"mixkey"+(name?"":" empty")+(S.sel===m.id?" sel":""),onclick:()=>pick(m.id)},
+      return el(S.edit?"button":"div",{class:"mixkey"+(name?"":" empty")+(S.sel===m.id?" sel":"")+(S.edit?"":" ro"),onclick:S.edit?()=>pick(m.id):null},
         el("span",{class:"tag"},m.id,el("small",{text:m.kind})),
         el("span",{class:"name",text:name||"Non attribué"}),
         el("span",{class:"spk",text:d&&str(d.spk)?"→ "+str(d.spk):"Aucune enceinte notée"}),
-        el("span",{class:"meta",text:d?[str(d.type),str(d.out)].filter(Boolean).join(" · "):""})); }))));
+        el("span",{class:"meta",text:d?[str(d.type),str(d.out)].filter(Boolean).join(" · "):""}),
+        d&&str(d.note)?el("span",{class:"meta pnote",text:str(d.note)}):null); }))));
     if(S.sel&&list.some(m=>m.id===S.sel)) v.append(mixEditor(MIX_BY_ID[S.sel]));
   }
 }
@@ -423,14 +453,17 @@ function renderScenes(v){
   if(!S.loaded) v.append(el("div",{class:"emptybox",text:"Chargement des scènes…"}));
   else if(!list.length) v.append(el("div",{class:"emptybox",text:"Aucune scène notée pour l'instant. Passe en mode édition puis « Ajouter une scène »."}));
   else{
-    const tb=el("tbody");
+    const box=el("div",{class:"plist"});
     for(const [id,d] of list){
-      tb.append(el("tr",{class:"click",tabindex:"0",onclick:()=>pick(id),onkeydown:e=>{if(e.key==="Enter")pick(id);}},
-        el("td",{class:"no",text:id}),el("td",{class:"sname",text:str(d.name)}),el("td",{text:str(d.when)}),
-        el("td",{class:"stamp",text:d.updatedAt?ago(d.updatedAt)+" · "+who(d.updatedBy):""})));
-      if(S.sel===id) tb.append(el("tr",null,el("td",{colspan:"4"},sceneEditor(id))));
+      box.append(el(S.edit?"button":"div",{class:"prow"+(S.edit?" click":""),onclick:S.edit?()=>pick(id):null},
+        el("span",{class:"pno",text:id}),
+        el("span",{class:"pbody"},
+          el("span",{class:"pname"},el("b",{text:str(d.name)})),
+          str(d.when)?el("span",{class:"pmeta",text:str(d.when)}):null,
+          str(d.note)?el("span",{class:"pnote",text:str(d.note)}):null)));
+      if(S.sel===id) box.append(sceneEditor(id));
     }
-    v.append(el("div",{class:"tablewrap"},el("table",null,el("thead",null,el("tr",null,el("th",{text:"N°"}),el("th",{text:"Nom"}),el("th",{text:"Quand l'utiliser"}),el("th",{text:"Modifié"}))),tb)));
+    v.append(box);
   }
 }
 function sceneEditor(id){
